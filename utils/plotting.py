@@ -3,6 +3,20 @@ import numpy as np
 
 
 def plot_activations(titles, *activations):
+    """
+    Plot activations.
+
+    Args:
+        titles (list): List of titles for each activation.
+        *activations (ndarray): Variable number of activation arrays.
+
+    Raises:
+        AssertionError: If the number of dimensions is not between 2 and 3.
+
+    Returns:
+        None
+    """
+
     shape = np.array(activations[0].shape)
     non_one_dims = shape > 1
     num_act = len(activations)

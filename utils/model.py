@@ -73,6 +73,14 @@ def load_tracr_weights(tr_model, model, cfg):
     """
     Load the weights from the tracr model, code taken from:
     https://colab.research.google.com/github/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb#scrollTo=bgM5a_Ct5k1V
+
+    Args:
+        tr_model: HookedTransformer, the empty model to which the weights will be loaded
+        model: tracr model, the model from which the weights will be loaded
+        cfg: configuration of the model
+    
+    Returns:
+        HookedTransformer: model with weights from tracr model
     """
 
     n_heads = cfg.n_heads
@@ -157,6 +165,23 @@ def load_tracr_weights(tr_model, model, cfg):
 
 
 def train_model(model, optimizer, criterion, train_loader, epochs, batch_size, input_size, len_vocab, save_path=None):
+    """
+    Trains a given model using the specified optimizer and criterion.
+
+    Args:
+        model (nn.Module): The model to be trained.
+        optimizer (torch.optim.Optimizer): The optimizer used for training.
+        criterion (torch.nn.Module): The loss function used for training.
+        train_loader (DataLoader): The data loader for training data.
+        epochs (int): The number of epochs to train the model.
+        batch_size (int): The batch size used for training.
+        input_size (int): The size of the input sequence.
+        len_vocab (int): The length of the vocabulary.
+        save_path (str, optional): The file path to save the trained model. Defaults to None.
+
+    Returns:
+        list: A list of losses at each epoch.
+    """
     losses = []
     for epoch in tqdm(range(epochs)):
         for input_seq, target_seq in train_loader(batch_size * 10, len_vocab, input_size, batch_size):
@@ -174,6 +199,25 @@ def train_model(model, optimizer, criterion, train_loader, epochs, batch_size, i
 
 
 class CompressionHook(nn.Module):
+    """
+    A class representing a compression hook for reducing the dimensionality of input data.
+
+    Args:
+        input_dim (int): The dimensionality of the input data.
+        reduction_factor (int, optional): The reduction factor for compressing the input data. Default is 1.
+        device (str, optional): The device to use for computation. Default is "cuda:0".
+
+    Attributes:
+        fc_compress (nn.Linear): The linear layer for compressing the input data.
+        fc_decompress (nn.Linear): The linear layer for decompressing the compressed data.
+        reduction_factor (int): The reduction factor for compressing the input data.
+        weight (torch.Tensor): The weight matrix of the compression layer.
+
+    Methods:
+        compress(x): Compresses the input data.
+        decompress(x): Decompresses the compressed data.
+    """
+
     def __init__(self, input_dim, reduction_factor=1, device="cuda:0"):
         super(CompressionHook, self).__init__()
 
@@ -205,13 +249,43 @@ class CompressionHook(nn.Module):
         self.weight = self.fc_compress.weight.data
 
     def compress(self, x):
+        """
+        Compresses the input data.
+
+        Args:
+            x (torch.Tensor): The input data to be compressed.
+
+        Returns:
+            torch.Tensor: The compressed data.
+        """
         return self.fc_compress(x)
 
     def decompress(self, x):
+        """
+        Decompresses the compressed data.
+
+        Args:
+            x (torch.Tensor): The compressed data to be decompressed.
+
+        Returns:
+            torch.Tensor: The decompressed data.
+        """
         return self.fc_decompress(x)
 
 
 class HookedTransformer(HookedTransformer):
+    """A class representing a hooked transformer model.
+
+    This class extends the base `HookedTransformer` class and adds additional functionality for compression and caching.
+    It also overwrites the `forward` method to include the compression hook.
+
+    Args:
+        cfg: The configuration object for the model.
+
+    Attributes:
+        compression: The compression hook for the model.
+    """
+
     def __init__(self, cfg):
         super(HookedTransformer, self).__init__(cfg)
         self.compression = CompressionHook(cfg.d_model, 1, cfg.device)
