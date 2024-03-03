@@ -66,7 +66,7 @@
 
 
 
-## Trash
+## Trashj
 ```python
 cfg = {
         'num_encoder_layers':n_layers,
@@ -92,4 +92,8 @@ cfg = {
         - (Maybe just last layer)
 - Dropout, dropout neurons during training?
     - Sample multiple?
+- For LLC estimate:
+    - https://pypi.org/project/torch-sgld/
+        > A python library that implemtent stochatic gradient Langevin Dynamics
+    -   
 

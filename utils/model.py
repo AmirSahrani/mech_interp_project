@@ -55,7 +55,7 @@ def cfg_from_tracr(assembled_model):
     cfg = HookedTransformerConfig(
         n_layers=n_layers,
         d_model=d_model,
-        d_head=d_head,          
+        d_head=d_head,
         n_ctx=n_ctx,
         d_vocab=d_vocab,
         d_vocab_out=d_vocab_out,
@@ -78,7 +78,7 @@ def load_tracr_weights(tr_model, model, cfg):
         tr_model: HookedTransformer, the empty model to which the weights will be loaded
         model: tracr model, the model from which the weights will be loaded
         cfg: configuration of the model
-    
+
     Returns:
         HookedTransformer: model with weights from tracr model
     """
@@ -164,7 +164,7 @@ def load_tracr_weights(tr_model, model, cfg):
     return tr_model
 
 
-def train_model(model, optimizer, criterion, train_loader, epochs, batch_size, input_size, len_vocab, save_path=None):
+def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batch_size, input_size, len_vocab, save_path=None):
     """
     Trains a given model using the specified optimizer and criterion.
 
@@ -186,8 +186,12 @@ def train_model(model, optimizer, criterion, train_loader, epochs, batch_size, i
     for epoch in tqdm(range(epochs)):
         for input_seq, target_seq in train_loader(batch_size * 10, len_vocab, input_size, batch_size):
             optimizer.zero_grad()
-            output = model(input_seq)
-            loss = criterion(output.view(-1, output.shape[-1]), target_seq.view(-1))  # Flatten output and target for the loss function
+            output, cache = model.run_with_cache(input_seq)
+            loss = criterion(output.view(-1, output.shape[-1]), target_seq.view(-1))
+            if pentaly[0] == "model":
+                loss += pentaly[1](model)
+            else:
+                loss += pentaly[1](cache)
             loss.backward()
             optimizer.step()
             losses.append(loss.item())
@@ -450,3 +454,15 @@ class HookedTransformer(HookedTransformer):
                     else:
                         logging.warning(f"Invalid return_type passed in: {return_type}")
                         return None
+
+
+def l1_pentaly(lamb):
+    return "model", lambda model: lamb * sum(p.abs().sum() for p in model.parameters() if p.requires_grad)
+
+
+def l1_pentaly_activation(lamb):
+    return "cache", lambda cache: lamb * sum(p.abs().sum() for k, p in cache.items())
+
+
+def no_pentaly(lamb):
+    return "model", lambda model: 0
