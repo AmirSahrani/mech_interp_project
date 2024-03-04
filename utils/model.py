@@ -9,6 +9,7 @@ from transformer_lens.utilities import devices
 import transformer_lens.utils as utils
 from transformer_lens.utils import USE_DEFAULT_VALUE
 
+# from devinterp.utils
 import torch as t
 from torch import nn
 from tqdm import tqdm
@@ -164,7 +165,7 @@ def load_tracr_weights(tr_model, model, cfg):
     return tr_model
 
 
-def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batch_size, input_size, len_vocab, save_path=None):
+def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batch_size, input_size, len_vocab, scheduler=None, save_path=None):
     """
     Trains a given model using the specified optimizer and criterion.
 
@@ -177,12 +178,14 @@ def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batc
         batch_size (int): The batch size used for training.
         input_size (int): The size of the input sequence.
         len_vocab (int): The length of the vocabulary.
+        scheduler (torch.optim.lr_scheduler): Scheduler for the Learning rate
         save_path (str, optional): The file path to save the trained model. Defaults to None.
 
     Returns:
         list: A list of losses at each epoch.
     """
     losses = []
+    samples = []
     for epoch in tqdm(range(epochs)):
         for input_seq, target_seq in train_loader(batch_size * 10, len_vocab, input_size, batch_size):
             optimizer.zero_grad()
@@ -193,9 +196,18 @@ def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batc
             else:
                 loss += pentaly[1](cache)
             loss.backward()
-            optimizer.step()
-            losses.append(loss.item())
+            if scheduler:
+                if scheduler.get_last_beta() <= scheduler.beta:
+                    optimizer.step(noise=False)
+                else:
+                    optimizer.step()
+                    if scheduler.should_sample():
+                        samples.append(model.params.detach().clone())
+                scheduler.step()
 
+            else:
+                optimizer.step()
+            losses.append(loss.item())
         if save_path:
             t.save(model.state_dict(), save_path)
 
@@ -466,3 +478,4 @@ def l1_pentaly_activation(lamb):
 
 def no_pentaly(lamb):
     return "model", lambda model: 0
+

@@ -8,7 +8,6 @@
 
 # 11 Feb - Just finished being sick :)
 - [x] Made working training loop, but model still doesn't get perfect accuracy
-
 # 13 Feb 
 - [x] Fixed model, uses tracr config now
   - Using Neel [Nanda's code](https://colab.research.google.com/github/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb#scrollTo=bgM5a_Ct5k1V)  
@@ -50,19 +49,37 @@
 - [x] Setup regularized models
     - Only fully trained
 
+# 4 Mar
+- Tracr works, but is limited in the number of similar elements
+- finally understand Rasp program for sorting
+    - Interpretation of plots:
+        1. attn layer 0 => Nothing
+        2. mlp layer 0 => each point is evenly spaced and put in the right position given a unique 1-9 sorting. e.g. 3 would be placed on the 3 index (!!test!!, patch in different number?)
+        3. resid post layer 0 => seems like a copy of the points is created and moved to a different position, bos token removed?
+        4.attn layer 1 => Looks like a vertical histogram, treating the size of the number as the height -> sorting happens here? (selector width, or aggrate?)
+            => Scores Looks like a NxN matrix of the equality check -> (Select instead?)
+            => attn out seem to look like the order of the indices
+        5. mlp layer 1 => Seems like a stretched out version of the attn out. Possibly just multiplying each element with each index score? (fuzzy) 
+            -> looking that the mlp out it looks like a few have different colors
+        6. resid layer 1 => yet another "copy" this time the shape is the same but the values are different, some have "split" into two cells. Might be the double tokens? (e.g. the 2 in [1,2,2]). Indices are also present
+        7. attn layer 2 => straight diagonal, bos token is lower values
+            -> attn scores look like the inverted the tokens?
+            -> attn hook_z => everything is all sorted now. everything after is empty
+        8. mlp => empty
+- found papers related to bayesian deeplearning needed for LLC
+- created accuracy function
+- Examinor liked the direction this is heading
+- [-] implement working SGLD algorithm (not needed with libary)
+- [x] Implement LLC measure
+    - it seems like this kind of measure needs something special, because my LLC is negative and when I train models using SGLD I get basically perform gradient ascent :)
 
 
-# TODO - list to pick from
-- [ ] Find out how to "compress" tracr model
-    - Current idea: 
-      - Re-initialize weights that relate to reading and writing to resid
-      - Train model
-      - might be harder than it sounds
-    - Idea after meeting:
-      - Regularize normal model -> make it more like tracr model
-      - Compress tracr model -> make it more like normal model
-      - Compress normal model -> expand -> normal model
-      - Make Tracr model more robust to drop out 
+
+- Idea after meeting:
+  - Regularize normal model -> make it more like tracr model
+  - Compress tracr model -> make it more like normal model
+  - Compress normal model -> expand -> normal model
+  - Make Tracr model more robust to drop out 
 
 
 

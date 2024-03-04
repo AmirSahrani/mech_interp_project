@@ -146,3 +146,14 @@ def run_with_activations(model, seq, input_encoder=None):
         return pred_assembled.attn_logits, pred_assembled
 
 
+def test_accuracy(model, vocab, input_size, input_encoder=None, output_encoder=None):
+    model.eval()
+    correct = 0
+    total = 0
+    with t.no_grad():
+        for i, (x, y) in enumerate(train_loader(1000, input_size, vocab, 1)):
+            predicted = prompt(model, x, input_encoder, output_encoder)
+
+            total += y.size(1)
+            correct += sum((pred == orig for pred, orig in zip(predicted, y.tolist()[0])))
+    return correct / total * 100
