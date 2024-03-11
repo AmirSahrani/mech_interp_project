@@ -27,7 +27,7 @@ def plot_activations(titles, *activations):
     else:
         n_figures = 1
 
-    fig, axes = plt.subplots(num_act, n_figures, figsize=(num_act * 10, n_figures * 10))
+    figure, axes = plt.subplots(num_act, n_figures, figsize=(num_act * 10, n_figures * 10))
 
     for fig in range(n_figures):
         # Case that there is only one set of activations to plot

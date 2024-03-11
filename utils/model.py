@@ -18,6 +18,8 @@ from typing import List, Optional, Tuple, Union
 from jaxtyping import Float, Int
 from typing_extensions import Literal
 
+from data import test_accuracy
+
 SingleLoss = Float[t.Tensor, ""]  # Type alias for a single element tensor
 LossPerToken = Float[t.Tensor, "batch pos-1"]
 Loss = Union[SingleLoss, LossPerToken]
@@ -165,7 +167,7 @@ def load_tracr_weights(tr_model, model, cfg):
     return tr_model
 
 
-def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batch_size, input_size, len_vocab, scheduler=None, save_path=None):
+def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batch_size, input_size, len_vocab, bench_mark, save_path=None):
     """
     Trains a given model using the specified optimizer and criterion.
 
@@ -180,12 +182,12 @@ def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batc
         len_vocab (int): The length of the vocabulary.
         scheduler (torch.optim.lr_scheduler): Scheduler for the Learning rate
         save_path (str, optional): The file path to save the trained model. Defaults to None.
-
-    Returns:
+Returns:
         list: A list of losses at each epoch.
     """
     losses = []
-    samples = []
+    accuracy = []
+    bench_mark_scores = [[], [], [], []]
     for epoch in tqdm(range(epochs)):
         for input_seq, target_seq in train_loader(batch_size * 10, len_vocab, input_size, batch_size):
             optimizer.zero_grad()
@@ -196,22 +198,24 @@ def train_model(model, optimizer, criterion, pentaly, train_loader, epochs, batc
             else:
                 loss += pentaly[1](cache)
             loss.backward()
-            if scheduler:
-                if scheduler.get_last_beta() <= scheduler.beta:
-                    optimizer.step(noise=False)
-                else:
-                    optimizer.step()
-                    if scheduler.should_sample():
-                        samples.append(model.params.detach().clone())
-                scheduler.step()
-
-            else:
-                optimizer.step()
+            optimizer.step()
             losses.append(loss.item())
-        if save_path:
-            t.save(model.state_dict(), save_path)
 
-    return losses
+        if save_path:
+            if epoch == epochs - 1:
+                t.save(model.state_dict(), save_path)
+
+            path = save_path.split('/')
+            path[0] = 'checkpoints/'
+            path = ''.join(path)
+            path += f'_{epoch}'
+            t.save(model.state_dict(), path)
+
+        if bench_mark:
+            [bench_mark_scores[i].append(score) for i, score in enumerate(bench_mark(model, len_vocab, input_size))]
+        accuracy.append(test_accuracy(model, len_vocab, input_size))
+
+    return losses, accuracy, bench_mark_scores
 
 
 class CompressionHook(nn.Module):
@@ -259,7 +263,7 @@ class CompressionHook(nn.Module):
         # Prevent the decompression weights from being updated during training
         # self.fc_decompress.weight.requires_grad = False
 
-        self.fc_compress.requires_grad_(True)
+        self.fc_compress.requires_grad_(False)
         self.reduction_factor = reduction_factor
         self.to(device)
         self.weight = self.fc_compress.weight.data
@@ -450,6 +454,7 @@ class HookedTransformer(HookedTransformer):
                 residual = self.compression.compress(self.ln_final(self.compression.decompress(residual)))  # [batch, pos, d_model]
             if return_type is None:
                 return None
+
             else:
                 logits = self.unembed(self.compression.decompress(residual))  # [batch, pos, d_vocab]
                 if return_type == "logits":
@@ -473,9 +478,8 @@ def l1_pentaly(lamb):
 
 
 def l1_pentaly_activation(lamb):
-    return "cache", lambda cache: lamb * sum(p.abs().sum() for k, p in cache.items())
+    return "cache", lambda cache: lamb * sum(t.min(t.abs(0 - p), t.abs(1 - p)).sum() for k, p in cache.items() if 'hook_resid_post' in k)
 
 
 def no_pentaly(lamb):
     return "model", lambda model: 0
-

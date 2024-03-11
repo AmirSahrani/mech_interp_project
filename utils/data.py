@@ -3,6 +3,9 @@ from tracr.compiler.assemble import AssembledTransformerModel
 from transformer_lens import HookedTransformer
 
 
+device = "cuda" if t.cuda.is_available() else 'cpu'
+
+
 def generate_data(n_samples, vocab, max_seq_len):
     """
     Generate random sequences of integers.
@@ -79,7 +82,7 @@ def decode_model_output(logits, output_encoder):
         output_encoder (Encoder): The output encoder object.
 
     Returns:
-        str: The decoded output string.    
+        str: The decoded output string.
     """
     max_output_indices = logits.squeeze().argmax(-1)
 
@@ -107,12 +110,11 @@ def prompt(model, seq, input_encoder=None, output_encoder=None):
     """
     if isinstance(model, HookedTransformer):
 
-        if input_encoder:
-            seq_valid = create_model_input(seq, input_encoder)
-            logit, cache = model.run_with_cache(seq_valid)
-            return decode_model_output(logit, output_encoder)
-        else:
-            return model(seq).argmax(-1).squeeze(0).tolist()
+        # if input_encoder:
+        #     seq_valid = create_model_input(seq, input_encoder)
+        #     logit, cache = model.run_with_cache(seq_valid)
+        #     return decode_model_output(cache["blocks.2.attn.hook_z"], output_encoder)
+        return model(seq).argmax(-1).squeeze(0).tolist()
 
     elif isinstance(model, AssembledTransformerModel):
         bos_x = make_tracr_friendly(seq)
@@ -143,7 +145,7 @@ def run_with_activations(model, seq, input_encoder=None):
     elif isinstance(model, AssembledTransformerModel):
         bos_x = make_tracr_friendly(seq)
         pred_assembled = model.apply(bos_x)
-        return pred_assembled.attn_logits, pred_assembled
+        return pred_assembled.attn_logits[-1], pred_assembled
 
 
 def test_accuracy(model, vocab, input_size, input_encoder=None, output_encoder=None):
@@ -151,9 +153,52 @@ def test_accuracy(model, vocab, input_size, input_encoder=None, output_encoder=N
     correct = 0
     total = 0
     with t.no_grad():
-        for i, (x, y) in enumerate(train_loader(1000, input_size, vocab, 1)):
+        for i, (x, y) in enumerate(train_loader(30, vocab, input_size, 1)):
             predicted = prompt(model, x, input_encoder, output_encoder)
 
             total += y.size(1)
             correct += sum((pred == orig for pred, orig in zip(predicted, y.tolist()[0])))
-    return correct / total * 100
+    return correct / total
+
+
+def is_ascend(arr):
+    return (arr[1:] >= arr[:-1]).all()
+
+
+def contains_input(arr, input):
+    # Ensure both arrays have the same length
+    if t.max(arr) != t.max(input) or t.min(arr) != t.min(input):
+        return False
+    else:
+        return (t.bincount(arr) == t.bincount(input)).all()
+
+
+def frac_input(arr, input):
+    # Ensure both arrays have the same length
+    if t.max(arr) != t.max(input) or t.min(arr) != t.min(input):
+        return False
+    else:
+        return (t.bincount(arr) == t.bincount(input)).sum() / len(arr)
+
+
+def num_sorted_pairs(arr):
+    return (arr[1:] >= arr[:-1]).sum() / (len(arr) - 1)
+
+
+def test_benchmarks(model, vocab, input_size):
+    num_samples = 30
+
+    # Getting all benchmarks, the tuples are a hacky way to ensure I know which inputs each benchmar requires
+    benchmarks = [is_ascend, (contains_input, 1), (frac_input, 1), num_sorted_pairs]
+    scores = t.zeros(len(benchmarks))
+
+    for _ in range(num_samples):
+        input = t.randint(vocab, size=(input_size,), device=device).squeeze()
+        output = t.tensor(prompt(model, input), device=device)
+        for i, bench in enumerate(benchmarks):
+            if isinstance(bench, tuple):
+                scores[i] += 1 if bench[0](output, input) else 0
+            else:
+                scores[i] += 1 if bench(output) else 0
+
+    return (scores / num_samples).tolist()

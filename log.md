@@ -54,14 +54,14 @@
 - finally understand Rasp program for sorting
     - Interpretation of plots:
         1. attn layer 0 => Nothing
-        2. mlp layer 0 => each point is evenly spaced and put in the right position given a unique 1-9 sorting. e.g. 3 would be placed on the 3 index (!!test!!, patch in different number?)
+        2. mlp layer 0 => each point is mapped to is own "value", each value in the vocab has its own diagnonal, spaced and put in the right position given a unique 1-9 sorting. e.g. 3 would be placed on the 3 index (!!test!!, patch in different number?)
         3. resid post layer 0 => seems like a copy of the points is created and moved to a different position, bos token removed?
         4.attn layer 1 => Looks like a vertical histogram, treating the size of the number as the height -> sorting happens here? (selector width, or aggrate?)
             => Scores Looks like a NxN matrix of the equality check -> (Select instead?)
             => attn out seem to look like the order of the indices
         5. mlp layer 1 => Seems like a stretched out version of the attn out. Possibly just multiplying each element with each index score? (fuzzy) 
             -> looking that the mlp out it looks like a few have different colors
-        6. resid layer 1 => yet another "copy" this time the shape is the same but the values are different, some have "split" into two cells. Might be the double tokens? (e.g. the 2 in [1,2,2]). Indices are also present
+        6. resid layer 1 => yet another "copy" this time the shape is the same but the values are different, some have "split" into two cells. ~Might be the double tokens? (e.g. the 2 in [1,2,2])~. Indices are also present
         7. attn layer 2 => straight diagonal, bos token is lower values
             -> attn scores look like the inverted the tokens?
             -> attn hook_z => everything is all sorted now. everything after is empty
@@ -74,12 +74,17 @@
     - it seems like this kind of measure needs something special, because my LLC is negative and when I train models using SGLD I get basically perform gradient ascent :)
 
 
+# 6 Mar
+- Issues for meeting tomorrow:
+    - I don't quite understand how the unembedding is done
+    - Compressing the model seems to destroy model performance -> Maybe sorting can not be done in super position since all elements my co-occur?
+    - LLC estimates are negative
+    - W@W.T is approximating the identity matrix!!!!
 
 - Idea after meeting:
   - Regularize normal model -> make it more like tracr model
   - Compress tracr model -> make it more like normal model
   - Compress normal model -> expand -> normal model
-  - Make Tracr model more robust to drop out 
 
 
 
@@ -103,14 +108,7 @@ cfg = {
 ```
 
 
-- Try l1 instead of l2 
-    - Could do it on the weights
-    - Could do it on the activations (manual labour)
-        - (Maybe just last layer)
-- Dropout, dropout neurons during training?
-    - Sample multiple?
 - For LLC estimate:
     - https://pypi.org/project/torch-sgld/
         > A python library that implemtent stochatic gradient Langevin Dynamics
-    -   
 
