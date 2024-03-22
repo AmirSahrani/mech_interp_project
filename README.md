@@ -40,11 +40,3 @@ To reproduce the results or explore the project further, follow these steps:
 4. Run `utils/llc.py` to generate the LLC data (This will take a long time).
 
 Feel free to explore the code, modify the notebooks, and experiment with different configurations to gain further insights into the effects of weight decay on transformer models and their interpretability.
-
-## Acknowledgments
-
-We would like to thank the authors of the original transformer paper and the developers of the libraries and frameworks used in this project for their valuable contributions to the field of natural language processing.
-
-If you have any questions or suggestions, please feel free to open an issue or contact the project maintainers.
-
-Happy exploring!
