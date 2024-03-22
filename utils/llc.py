@@ -12,7 +12,10 @@ import pandas as pd
 import multiprocessing
 from functools import partial
 
-from model import cfg_from_tracr
+if __name__ == "__main__":
+    from model import cfg_from_tracr, transformers_cross_entropy
+else:
+    from utils.model import cfg_from_tracr, transformers_cross_entropy
 
 
 class SortDataset(t.utils.data.Dataset):
@@ -28,12 +31,6 @@ class SortDataset(t.utils.data.Dataset):
         device = "cuda" if t.cuda.is_available() else "cpu"
         seq = t.randint(self.vocab, size=(self.input_size,), device=device).squeeze()
         return seq, t.sort(seq, dim=-1).values
-
-
-def transformers_cross_entropy(inputs, outputs):
-    return t.nn.functional.cross_entropy(
-        inputs, outputs
-    )
 
 
 def load_model(file, cfg):
@@ -82,7 +79,7 @@ def get_llc_for_model(model, cfg):
 
 
 def main():
-    checkpoints = glob.glob('checkpoints/*')[:3]
+    checkpoints = glob.glob('checkpoints/*')
 
     cfg = get_cfg()
     llc_values = []
@@ -105,7 +102,7 @@ def main():
     for i, result in enumerate(results):
         llc_values.append(result)
     df = pd.DataFrame(llc_values, columns=['model', 'llc_value'])
-    df.to_csv('llc_values.csv', index=False)
+    df.to_csv('data/llc_values.csv', index=False)
     print(df)
 
 

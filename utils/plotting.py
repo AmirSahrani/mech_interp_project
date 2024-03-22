@@ -27,24 +27,30 @@ def plot_activations(titles, *activations):
     else:
         n_figures = 1
 
-    figure, axes = plt.subplots(num_act, n_figures, figsize=(num_act * 10, n_figures * 10))
+    figure, axes = plt.subplots(num_act, n_figures, figsize=(num_act * 11, n_figures * 10))
 
     for fig in range(n_figures):
         # Case that there is only one set of activations to plot
         if num_act == 1:
-            axes[fig].imshow(activations[0][fig, :, :].squeeze())
+            max_v = np.max(activations[0][fig, :, :].squeeze())
+            im = axes[fig].imshow(activations[0][fig, :, :].squeeze(), vmin=-max_v, vmax=max_v)
             axes[fig].set_title(titles[fig])
+            figure.colorbar(im)
 
         # Case that there is only one pair of matrices to plot
         elif n_figures == 1:
             for act in range(num_act):
-                axes[act].imshow(activations[act].squeeze())
+                max_v = np.max(activations[act].squeeze())
+                im = axes[act].imshow(activations[act].squeeze(), vmin=-max_v, vmax=max_v)
                 axes[act].set_title(titles[act])
+                figure.colorbar(im)
 
         # Case that there are multiple activations and multiple dimensions
         else:
             for act in range(num_act):
-                axes[fig, act].imshow(activations[act][fig, :, :].squeeze())
+                max_v = np.max(activations[act][fig, :, :].squeeze())
+                im = axes[fig, act].imshow(activations[act][fig, :, :].squeeze(), vmin=-max_v, vmax=max_v)
                 axes[act].set_title(titles[act])
+                figure.colorbar(im)
     plt.tight_layout()
     plt.show()

@@ -18,7 +18,7 @@ from typing import List, Optional, Tuple, Union
 from jaxtyping import Float, Int
 from typing_extensions import Literal
 
-from data import test_accuracy
+from utils.data import test_accuracy
 
 SingleLoss = Float[t.Tensor, ""]  # Type alias for a single element tensor
 LossPerToken = Float[t.Tensor, "batch pos-1"]
@@ -189,7 +189,7 @@ Returns:
     accuracy = []
     bench_mark_scores = [[], [], [], []]
     for epoch in tqdm(range(epochs)):
-        for input_seq, target_seq in train_loader(batch_size * 10, len_vocab, input_size, batch_size):
+        for input_seq, target_seq in train_loader(batch_size, len_vocab, input_size, batch_size):
             optimizer.zero_grad()
             output, cache = model.run_with_cache(input_seq)
             loss = criterion(output.view(-1, output.shape[-1]), target_seq.view(-1))
@@ -478,8 +478,14 @@ def l1_pentaly(lamb):
 
 
 def l1_pentaly_activation(lamb):
-    return "cache", lambda cache: lamb * sum(t.min(t.abs(0 - p), t.abs(1 - p)).sum() for k, p in cache.items() if 'hook_resid_post' in k)
+    return "cache", lambda cache: lamb / 1000 * sum(t.min(t.abs(0 - p), 1 - t.abs(p)).sum() for k, p in cache.items() if 'hook_resid_post' in k)
 
 
 def no_pentaly(lamb):
     return "model", lambda model: 0
+
+
+def transformers_cross_entropy(inputs, outputs):
+    return t.nn.functional.cross_entropy(
+        inputs, outputs, reduce=True, reduction='mean'
+    )
